@@ -15,5 +15,8 @@ exports.authValidation = (method) => {
         body("password", "Password doesn't exists").exists(),
       ];
     }
+    case "forgotPassword": {
+      return [body("email", "Invalid email").exists().isEmail()];
+    }
   }
 };
