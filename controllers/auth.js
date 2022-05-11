@@ -1,9 +1,15 @@
 const { validationResult } = require("express-validator");
 const asyncHandler = require("../middleware/asyncHandler");
 const ErrorResponse = require("../utils/ErrorResponse");
-const User = require("./../models/User");
 const sendMail = require("./../utils/sendMail");
-const crypto = require("crypto");
+
+const {
+  getUserByEmail,
+  createUser,
+  getUserById,
+  getUserByParams,
+} = require("../services/auth");
+const { getHashFromString } = require("../utils/getHash");
 
 exports.login = asyncHandler(async (req, res, next) => {
   const errors = validationResult(req);
@@ -20,7 +26,7 @@ exports.login = asyncHandler(async (req, res, next) => {
   const { email, password } = req.body;
 
   //check if user exists
-  const user = await User.findOne({ email: email }).select("+password");
+  const user = await getUserByEmail(email);
 
   if (!user) {
     return next(new ErrorResponse("User does not exist", 400));
@@ -57,17 +63,13 @@ exports.register = asyncHandler(async (req, res, next) => {
 
   const { name, email, password } = req.body;
 
-  let user = await User.findOne({ email: email });
+  let user = await getUserByEmail(email);
 
   if (user) {
     return next(new ErrorResponse("User already exists", 400));
   }
 
-  user = await User.create({
-    name,
-    email,
-    password,
-  });
+  user = await createUser({ name, email, password });
 
   res.status(201).json({
     data: user,
@@ -77,7 +79,7 @@ exports.register = asyncHandler(async (req, res, next) => {
 });
 
 exports.me = asyncHandler(async (req, res, next) => {
-  const user = await User.findById(req.user._id);
+  const user = await getUserById(req.user.id);
 
   return res.status(200).json({
     data: user,
@@ -99,7 +101,7 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
 
   const { email } = req.body;
 
-  const user = await User.findOne({ email: email });
+  const user = await getUserByEmail(email);
 
   if (!user) {
     return next(new ErrorResponse("User does not exist", 400));
@@ -126,17 +128,12 @@ exports.resetPassword = asyncHandler(async (req, res, next) => {
   const { token } = req.params;
   const { password } = req.body;
 
-  const resetPasswordToken = crypto
-    .createHash("sha256")
-    .update(token)
-    .digest("hex");
+  const resetPasswordToken = getHashFromString(token);
 
-  const user = await User.findOne({
+  const user = await getUserByParams({
     resetPasswordToken: resetPasswordToken,
     resetPasswordExpire: { $gt: Date.now() },
   });
-
-  console.log(user);
 
   if (!user) {
     return next(new ErrorResponse("Token is invalid or has expired", 400));
