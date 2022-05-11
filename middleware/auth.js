@@ -4,8 +4,6 @@ const User = require("../models/User");
 require("colors");
 
 exports.auth = async (req, res, next) => {
-  console.log("Checking if user is logged in...".inverse.yellow);
-
   let token =
     req.headers.authorization && req.headers.authorization.split(" ")[1];
 
@@ -26,7 +24,16 @@ exports.auth = async (req, res, next) => {
   }
 };
 
-exports.authorize = (req, res, next) => {
-  console.log("Checking if user is authorized...".inverse.yellow);
-  next();
+exports.authorize = (...roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.user.role)) {
+      return next(
+        new ErrorResponse(
+          `User role ${req.user.role} is not authorized to access this route`,
+          403
+        )
+      );
+    }
+    next();
+  };
 };
