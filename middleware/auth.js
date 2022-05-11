@@ -1,18 +1,26 @@
 const ErrorResponse = require("../utils/ErrorResponse");
-
+const jwt = require("jsonwebtoken");
+const User = require("../models/User");
 require("colors");
 
-exports.auth = (req, res, next) => {
+exports.auth = async (req, res, next) => {
   console.log("Checking if user is logged in...".inverse.yellow);
 
   let token =
     req.headers.authorization && req.headers.authorization.split(" ")[1];
 
   if (!token) {
-    next(new ErrorResponse("Unauthenticated", 401));
+    return next(new ErrorResponse("Unauthenticated", 401));
   }
 
-  next();
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+    const user = await User.findById(decoded.id);
+    req.user = user;
+    return next();
+  } catch (e) {
+    return next(new ErrorResponse("Unauthenticated", 401));
+  }
 };
 
 exports.authorize = (req, res, next) => {

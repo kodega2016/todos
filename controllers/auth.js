@@ -16,12 +16,30 @@ exports.login = async (req, res, next) => {
 
   const { email, password } = req.body;
 
+  //check if user exists
+  const user = await User.findOne({ email: email }).select("+password");
+
+  if (!user) {
+    return next(new ErrorResponse("User does not exist", 400));
+  }
+
+  //Check if password is correct
+  const isMatch = await user.matchPassword(password);
+
+  if (!isMatch) {
+    return next(new ErrorResponse("Invalid credentials", 400));
+  }
+
+  //Generate JWT
+  const token = user.getJsonWebToken();
+
   res.status(200).json({
-    data: null,
+    token: token,
     message: "Login Successful",
     status: true,
   });
 };
+
 exports.register = async (req, res, next) => {
   const errors = validationResult(req);
 
@@ -56,8 +74,10 @@ exports.register = async (req, res, next) => {
 };
 
 exports.me = async (req, res, next) => {
-  res.status(200).json({
-    data: null,
+  const user = await User.findById(req.user._id);
+
+  return res.status(200).json({
+    data: user,
     message: "Current User fetched successfully",
     status: true,
   });
